@@ -1,3 +1,6 @@
+![image](https://github.com/toyxyz/a1111-sd-webui-dtg_comfyui/assets/8006000/f5a75e26-cdbd-487f-9cf5-e7b43d50c9f1)
+
+---------------------------------------------
 # A1111-SD-WebUI-DTG
 
 A sd-webui extension for utilizing DanTagGen to "upsample prompts".
