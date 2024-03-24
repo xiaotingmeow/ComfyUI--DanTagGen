@@ -195,7 +195,7 @@ class DanTagGen:
 <|quality|>, <|meta|>, <|rating|>""", "multiline": True}),
                 "width": ("INT", {"default": "512"}),
                 "height": ("INT", {"default": "512"}),
-                "temperature": ("FLOAT", {"default": "1.35"}),
+                "temperature": ("FLOAT", {"default": "1.35", "step": 0.01}),
                 "tag_length": (["very_short", "short", "long", "very_long"], {"default":"long"}),
                 "seed": ("INT", {"default": "1234"}),
             },
