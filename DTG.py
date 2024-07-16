@@ -199,6 +199,7 @@ class DanTagGen:
                 "top_p": ("FLOAT", {"default": 0.95, "step": 0.01}),
                 "top_k": ("INT", {"default": 100}),
                 "tag_length": (["very_short", "short", "long", "very_long"], {"default":"long"}),
+                "apply_DTG_formatting": ("BOOLEAN", {"default": True}),
                 "seed": ("INT", {"default": 0}),
             },
         }
@@ -220,6 +221,7 @@ class DanTagGen:
         temperature: float,
         top_p: float,
         top_k: int,
+        apply_DTG_formatting: bool,
     ):
         set_seed(seed)
         
@@ -277,6 +279,23 @@ class DanTagGen:
             tag_map[cate] = new_list
         prompt_by_dtg = apply_format(tag_map, format)
         #return prompt_by_dtg + "\n" + rebuild_extranet
+
+        if False == apply_DTG_formatting:
+            prompt_by_dtg = prompt
+            try:
+                prompt_by_dtg.strip()
+            except AttributeError:
+                prompt_by_dtg = str(prompt_by_dtg)
+                prompt_by_dtg.strip()
+            try:
+                if ',' == prompt_by_dtg[-1]:
+                    prompt_by_dtg = prompt_by_dtg[0:-1]
+            except IndexError:
+                prompt_by_dtg = str(prompt_by_dtg)
+
+            for token in extra_tokens:
+                prompt_by_dtg += ", " + token
+
         print(prompt_by_dtg)
         return (prompt_by_dtg,)
         
