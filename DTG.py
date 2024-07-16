@@ -193,11 +193,13 @@ class DanTagGen:
 <|general|>, 
 
 <|quality|>, <|meta|>, <|rating|>""", "multiline": True}),
-                "width": ("INT", {"default": "512"}),
-                "height": ("INT", {"default": "512"}),
-                "temperature": ("FLOAT", {"default": "1.35", "step": 0.01}),
+                "width": ("INT", {"default": 512}),
+                "height": ("INT", {"default": 512}),
+                "temperature": ("FLOAT", {"default": 1.35, "step": 0.01}),
+                "top_p": ("FLOAT", {"default": 0.95, "step": 0.01}),
+                "top_k": ("INT", {"default": 100}),
                 "tag_length": (["very_short", "short", "long", "very_long"], {"default":"long"}),
-                "seed": ("INT", {"default": "1234"}),
+                "seed": ("INT", {"default": 0}),
             },
         }
 
@@ -216,6 +218,8 @@ class DanTagGen:
         ban_tags: str,
         format: str,
         temperature: float,
+        top_p: float,
+        top_k: int,
     ):
         set_seed(seed)
         
@@ -255,8 +259,8 @@ class DanTagGen:
             len_target,
             black_list,
             temperature=temperature,
-            top_p=0.95,
-            top_k=100,
+            top_p=top_p,
+            top_k=top_k,
             max_new_tokens=256,
             max_retry=5,
         ):
