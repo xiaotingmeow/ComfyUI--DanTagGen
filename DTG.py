@@ -17,10 +17,13 @@ from .kgen.metainfo import TARGET
 from .kgen.generate import tag_gen
 from .kgen.logging import logger
 
+import kgen.models as models
+model_list = models.model_list
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 #Set model dir
 ext_dir = os.path.dirname(os.path.realpath(__file__))
 all_model_file = [f for f in os.listdir(ext_dir + "/models") if f.endswith(".gguf")]
-
 #Find gguf model
 try:
     from llama_cpp import Llama, LLAMA_SPLIT_MODE_NONE
@@ -184,6 +187,7 @@ class DanTagGen:
         
         return {
             "required": {
+                "model": (model_list,),
                 "prompt": ("STRING", {"default": "", "multiline": True}),
                 "ban_tags": ("STRING", {"default": "", "multiline": True}),
                 "format": ("STRING", {"default": """<|special|>, 
@@ -211,6 +215,7 @@ class DanTagGen:
     
     def execute(
         self,
+        model: str,
         prompt: str,
         width : int,
         height : int,
@@ -223,6 +228,19 @@ class DanTagGen:
         top_k: int,
         apply_DTG_formatting: bool,
     ):
+        models_available = {
+            model_path: [
+                LlamaForCausalLM.from_pretrained(model_path)
+                .requires_grad_(False)
+                .eval()
+                .half()
+                .to(DEVICE),
+                LlamaTokenizer.from_pretrained(model_path),
+            ]
+            for model_path in model_list
+        }
+        text_model, tokenizer = models_available[model]
+
         set_seed(seed)
         
         aspect_ratio = width / height
