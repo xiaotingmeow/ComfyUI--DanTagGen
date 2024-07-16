@@ -299,20 +299,32 @@ class DanTagGen:
         #return prompt_by_dtg + "\n" + rebuild_extranet
 
         if False == apply_DTG_formatting:
-            prompt_by_dtg = prompt
+            user_prompt = prompt
             try:
-                prompt_by_dtg.strip()
+                user_prompt.strip()
             except AttributeError:
-                prompt_by_dtg = str(prompt_by_dtg)
-                prompt_by_dtg.strip()
+                user_prompt = str(user_prompt)
+                user_prompt.strip()
             try:
-                if ',' == prompt_by_dtg[-1]:
-                    prompt_by_dtg = prompt_by_dtg[0:-1]
+                if ',' == user_prompt[-1]:
+                    user_prompt = user_prompt[0:-1]
             except IndexError:
-                prompt_by_dtg = str(prompt_by_dtg)
+                user_prompt = str(user_prompt)
 
             for token in extra_tokens:
-                prompt_by_dtg += ", " + token
+                try:
+                    token = token.strip()
+                except AttributeError:
+                    token = str(token)
+                    token.strip()
+                try:
+                    if "" == token:
+                        continue
+                    else:
+                        user_prompt += ", " + token
+                except IndexError:
+                    pass
+            prompt_by_dtg = user_prompt
 
         print(prompt_by_dtg)
         return (prompt_by_dtg,)
