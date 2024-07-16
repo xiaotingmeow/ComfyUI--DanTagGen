@@ -204,7 +204,7 @@ class DanTagGen:
                 "top_k": ("INT", {"default": 100}),
                 "tag_length": (["very_short", "short", "long", "very_long"], {"default":"long"}),
                 "apply_DTG_formatting": ("BOOLEAN", {"default": True}),
-                "seed": ("INT", {"default": 0}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 4294967295}),
             },
         }
 
