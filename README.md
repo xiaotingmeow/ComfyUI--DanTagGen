@@ -1,4 +1,7 @@
-![image](https://github.com/toyxyz/a1111-sd-webui-dtg_comfyui/assets/8006000/f5a75e26-cdbd-487f-9cf5-e7b43d50c9f1)
+ComfyUI node better aligned to KBlueLeaf's implementation of DanTagGen (https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg)
+Features:
+- Able to change DTG model, requires Tipo-KGen (https://github.com/KohakuBlueleaf/KGen)
+- Able to change seed, temperature, as well as top_p & top_k (top_p & top_k could not be changed in previous DTG custom nodes)
 
 ---------------------------------------------
 # A1111-SD-WebUI-DTG
