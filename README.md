@@ -2,9 +2,11 @@ ComfyUI node better aligned to KBlueLeaf's implementation of DanTagGen (https://
 
 Features:
 - Able to change DTG model, requires Tipo-KGen (https://github.com/KohakuBlueleaf/KGen)
-- Able to change seed, temperature, as well as top_p & top_k (top_p & top_k could not be changed in previous DTG custom nodes)
+- Able to change seed, temperature, as well as top_p & top_k (top_p & top_k were not implemented in other custom nodes for DTG)
+![image](https://github.com/user-attachments/assets/3804681f-6a37-48bc-8fa8-d7939b1cd788)
 
 ---------------------------------------------
+
 # A1111-SD-WebUI-DTG
 
 A sd-webui extension for utilizing DanTagGen to "upsample prompts".
