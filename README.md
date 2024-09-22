@@ -5,10 +5,14 @@
 以下为安装方法：
 
 1.下载该仓库，解压到当前文件夹
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/80d7a68a9cd87d1ee63ef67dfce25b9.png?raw=true)
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/ae25229b4894a61348ba3228a447de8.png?raw=true)
 
 2.复制 “ComfyUI-DanTagGen-main” 文件夹至 "你的整合包路径\ComfyUI_Max\ComfyUI\custom_nodes" 中(或ComfyUI_Pro、ComfyUI_Mini，与AIGODLIKE-ComfyUI-Translation在同一个文件夹中)
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/44ba2f7aeaf871844f02201faa8d13f.png?raw=true)
 
-3.在 "你的整合包路径\ComfyUI_Max\python_embeded\Lib\site-packages“ 中查找是否有“kgen”"llama_cpp"等一系列文件夹，如果有则跳转到
+3.在 "你的整合包路径\ComfyUI_Max\python_embeded\Lib\site-packages“ 中查找是否有“kgen”"llama_cpp"等一系列文件夹，如果有则跳转到步骤10
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/90b101d397e2365bc8e203b51fd69a0.png?raw=true)
 
 4.安装kgen，在铁锅炖启动器-comfyui-配置-环境-安装依赖-输入依赖包名称与版本 中，输入 `tipo-kgen`,点击安装即可(控制台会提示“内存资源不足，无法处理此命令。”，对安装无影响，以实际提示为准)
 
@@ -23,6 +27,8 @@
 等有关Cmake的错误，你需要根据以下步骤自行编译安装
 
 6.安装并运行Microsoft C++ 生成工具 https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/ ，点选“使用C++的桌面开发”并下载安装(有6GB大小)
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/e5b277c1c3a4805d28b6fce3dc5b8d7.png?raw=true)
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/4b2778dedb5eb890c81051d03641eee.png?raw=true)
 
 7.安装Cmake https://cmake.org/ ，点击右上DOWNLOAD,选择 Windows x64 Installer 对应的安装包下载并安装
   https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-windows-x86_64.msi
@@ -30,6 +36,7 @@
 8.安装scikit-build-core，在铁锅炖启动器-comfyui-配置-环境-安装依赖-输入依赖包名称与版本 中，输入 `scikit-build-core`,点击安装
 
 9.根据步骤5再次安装llama-cpp-python，编译会需要些时间，可以查看任务管理器了解CPU运行情况，有报错可以发issue或B站私信
+![image](https://github.com/xiaotingmeow/ComfyUI-DanTagGen/blob/main/sample_img/9abaa6632b1b3062f49d07df372def6.png?raw=true)
 
 10.下载模型，并放在 "你的整合包路径\ComfyUI_Max\ComfyUI\custom_nodes\ComfyUI-DanTagGen-main\models" 中
   推荐DanTagGen-delta-rev2的模型，3选1：
