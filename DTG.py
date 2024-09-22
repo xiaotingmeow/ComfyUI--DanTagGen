@@ -1,128 +1,57 @@
+# -*- coding: utf-8 -*-
+"""
+DanTagGen 模块用于基于输入提示生成标签。
+"""
+
+# 标准库导入
 import os
-import torch
-
 import re
+import traceback
 
-import random
-from functools import lru_cache
-
+# 第三方库导入
 import torch
+from transformers import  LlamaForCausalLM, LlamaTokenizer
 
-from transformers import set_seed
-
-from collections import defaultdict
-
-from .kgen.formatter import seperate_tags, apply_format, apply_dtg_prompt
-from .kgen.metainfo import TARGET
-from .kgen.generate import tag_gen
-from .kgen.logging import logger
-
+# 本地模块导入
+from kgen.formatter import seperate_tags, apply_format, apply_dtg_prompt
+from kgen.metainfo import TARGET
+from kgen.generate import tag_gen
+from kgen.logging import logger
 import kgen.models as models
-model_list = models.model_list
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-#Set model dir
-ext_dir = os.path.dirname(os.path.realpath(__file__))
-all_model_file = [f for f in os.listdir(ext_dir + "/models") if f.endswith(".gguf")]
-#Find gguf model
-try:
-    from llama_cpp import Llama, LLAMA_SPLIT_MODE_NONE
-
-    text_model = Llama(
-        all_model_file[-1],
-        n_ctx=384,
-        split_mode=LLAMA_SPLIT_MODE_NONE,
-        n_gpu_layers=100,
-        verbose=False,
-    )
-    tokenizer = None
-except:
-    logger.warning("Llama-cpp-python not found, using transformers to load model")
-    from transformers import LlamaForCausalLM, LlamaTokenizer
-
-    text_model = (
-        LlamaForCausalLM.from_pretrained("KBlueLeaf/DanTagGen-beta").eval().half()
-    )
-    tokenizer = LlamaTokenizer.from_pretrained("KBlueLeaf/DanTagGen-beta")
-    if torch.cuda.is_available():
-        text_model = text_model.cuda()
-    else:
-        text_model = text_model.cpu()
-
-#List
-TOTAL_TAG_LENGTH = {
-    "VERY_SHORT": "very short",
-    "SHORT": "short",
-    "LONG": "long",
-    "VERY_LONG": "very long",
-}
-
-TOTAL_TAG_LENGTH_TAGS = {
-    TOTAL_TAG_LENGTH["VERY_SHORT"]: "<|very_short|>",
-    TOTAL_TAG_LENGTH["SHORT"]: "<|short|>",
-    TOTAL_TAG_LENGTH["LONG"]: "<|long|>",
-    TOTAL_TAG_LENGTH["VERY_LONG"]: "<|very_long|>",
-}
-
-PROCESSING_TIMING = {
-    "BEFORE": "Before applying other prompt processings",
-    "AFTER": "After applying other prompt processings",
-}
-
-re_attention = re.compile(r"""
-\\\(|
-\\\)|
-\\\[|
-\\]|
-\\\\|
-\\|
-\(|
-\[|
-:\s*([+-]?[.\d]+)\s*\)|
-\)|
-]|
-[^\\()\[\]:]+|
-:
-""", re.X)
+# 正则表达式模式定义
+re_attention = re.compile(
+    r"""
+    \\\(|
+    \\\)|      # 转义的括号
+    \\\[|
+    \\]|       # 转义的方括号
+    \\\\|      # 转义的反斜杠
+    \\|        # 反斜杠
+    \(|        # 左括号
+    \[|        # 左方括号
+    :\s*([+-]?[.\d]+)\s*\)|  # 匹配权重，例如 :1.5)
+    \)|        # 右括号
+    ]|         # 右方括号
+    [^\\()\[\]:]+|  # 其他字符
+    :
+    """,
+    re.X,
+)
 
 re_break = re.compile(r"\s*\bBREAK\b\s*", re.S)
 
+
 def parse_prompt_attention(text):
     """
-    Parses a string with attention tokens and returns a list of pairs: text and its associated weight.
-    Accepted tokens are:
-      (abc) - increases attention to abc by a multiplier of 1.1
-      (abc:3.12) - increases attention to abc by a multiplier of 3.12
-      [abc] - decreases attention to abc by a multiplier of 1.1
-      \( - literal character '('
-      \[ - literal character '['
-      \) - literal character ')'
-      \] - literal character ']'
-      \\ - literal character '\'
-      anything else - just text
+    解析带有注意力标记的提示文本，并返回一个包含文本和对应权重的列表。
 
-    >>> parse_prompt_attention('normal text')
-    [['normal text', 1.0]]
-    >>> parse_prompt_attention('an (important) word')
-    [['an ', 1.0], ['important', 1.1], [' word', 1.0]]
-    >>> parse_prompt_attention('(unbalanced')
-    [['unbalanced', 1.1]]
-    >>> parse_prompt_attention('\(literal\]')
-    [['(literal]', 1.0]]
-    >>> parse_prompt_attention('(unnecessary)(parens)')
-    [['unnecessaryparens', 1.1]]
-    >>> parse_prompt_attention('a (((house:1.3)) [on] a (hill:0.5), sun, (((sky))).')
-    [['a ', 1.0],
-     ['house', 1.5730000000000004],
-     [' ', 1.1],
-     ['on', 1.0],
-     [' a ', 1.1],
-     ['hill', 0.55],
-     [', sun, ', 1.1],
-     ['sky', 1.4641000000000006],
-     ['.', 1.1]]
+    参数：
+        text (str): 包含注意力标记的提示文本。
+
+    返回：
+        List[List[str, float]]: 文本和对应权重的列表。
     """
-
     res = []
     round_brackets = []
     square_brackets = []
@@ -135,23 +64,23 @@ def parse_prompt_attention(text):
             res[p][1] *= multiplier
 
     for m in re_attention.finditer(text):
-        text = m.group(0)
+        token = m.group(0)
         weight = m.group(1)
 
-        if text.startswith('\\'):
-            res.append([text[1:], 1.0])
-        elif text == '(':
+        if token.startswith('\\'):
+            res.append([token[1:], 1.0])
+        elif token == '(':
             round_brackets.append(len(res))
-        elif text == '[':
+        elif token == '[':
             square_brackets.append(len(res))
         elif weight is not None and round_brackets:
             multiply_range(round_brackets.pop(), float(weight))
-        elif text == ')' and round_brackets:
+        elif token == ')' and round_brackets:
             multiply_range(round_brackets.pop(), round_bracket_multiplier)
-        elif text == ']' and square_brackets:
+        elif token == ']' and square_brackets:
             multiply_range(square_brackets.pop(), square_bracket_multiplier)
         else:
-            parts = re.split(re_break, text)
+            parts = re.split(re_break, token)
             for i, part in enumerate(parts):
                 if i > 0:
                     res.append(["BREAK", -1])
@@ -163,10 +92,10 @@ def parse_prompt_attention(text):
     for pos in square_brackets:
         multiply_range(pos, square_bracket_multiplier)
 
-    if len(res) == 0:
+    if not res:
         res = [["", 1.0]]
 
-    # merge runs of identical weights
+    # 合并具有相同权重的连续文本
     i = 0
     while i + 1 < len(res):
         if res[i][1] == res[i + 1][1]:
@@ -177,24 +106,73 @@ def parse_prompt_attention(text):
 
     return res
 
+
 class DanTagGen:
+    """
+    DanTagGen 类用于基于输入提示生成标签。
+    """
+
+    # 类级别常量
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    model_list = models.model_list
 
     def __init__(self):
-        pass
+        self.text_model = None
+        self.tokenizer = None
+        self.load_model()
+
+    def load_model(self):
+        """
+        加载模型和分词器。优先尝试使用 llama_cpp 加载本地模型，
+        如果失败，则使用 transformers 从预训练模型加载。
+        """
+        ext_dir = os.path.dirname(os.path.realpath(__file__))
+        models_dir = os.path.join(ext_dir, "models")
+        all_model_files = [f for f in os.listdir(models_dir) if f.endswith(".gguf")]
+        model_path = os.path.join(models_dir, all_model_files[-1]) if all_model_files else None
+
+        if model_path:
+            try:
+                from llama_cpp import Llama
+                self.text_model = Llama(
+                    model_path,
+                    n_ctx=384,
+                    n_gpu_layers=100,
+                    verbose=False,
+                )
+                self.tokenizer = LlamaTokenizer.from_pretrained("KBlueLeaf/DanTagGen-delta-rev2")
+                return
+            except ImportError:
+                logger.warning("llama_cpp 未安装。尝试使用 transformers 加载模型。")
+            except Exception as e:
+                logger.error(f"使用 llama_cpp 加载模型时发生错误: {e}")
+                logger.debug(traceback.format_exc())
+
+        # 使用 transformers 加载模型
+        try:
+            self.text_model = LlamaForCausalLM.from_pretrained(
+                "KBlueLeaf/DanTagGen-delta-rev2"
+            ).eval().half().to(self.DEVICE)
+            self.tokenizer = LlamaTokenizer.from_pretrained("KBlueLeaf/DanTagGen-delta-rev2")
+        except Exception as e:
+            logger.error(f"使用 transformers 加载模型失败: {e}")
+            raise RuntimeError("模型加载失败。")
 
     @classmethod
-    def INPUT_TYPES(self):
-        
+    def INPUT_TYPES(cls):
+        """
+        定义节点的输入参数类型。
+        """
         return {
             "required": {
-                "model": (model_list,),
+                "model": (cls.model_list,),
                 "prompt": ("STRING", {"default": "", "multiline": True}),
                 "ban_tags": ("STRING", {"default": "", "multiline": True}),
-                "format": ("STRING", {"default": """<|special|>, 
-<|characters|>, <|copyrights|>, 
-<|artist|>, 
+                "format": ("STRING", {"default": """<|special|>,
+<|characters|>, <|copyrights|>,
+<|artist|>,
 
-<|general|>, 
+<|general|>,
 
 <|quality|>, <|meta|>, <|rating|>""", "multiline": True}),
                 "width": ("INT", {"default": 512}),
@@ -202,7 +180,7 @@ class DanTagGen:
                 "temperature": ("FLOAT", {"default": 1.35, "step": 0.01}),
                 "top_p": ("FLOAT", {"default": 0.95, "step": 0.01}),
                 "top_k": ("INT", {"default": 100}),
-                "tag_length": (["very_short", "short", "long", "very_long"], {"default":"long"}),
+                "tag_length": (["very_short", "short", "long", "very_long"], {"default": "long"}),
                 "apply_DTG_formatting": ("BOOLEAN", {"default": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 4294967295}),
             },
@@ -212,13 +190,13 @@ class DanTagGen:
     RETURN_NAMES = ('prompt',)
     FUNCTION = 'execute'
     CATEGORY = 'utils'
-    
+
     def execute(
         self,
         model: str,
         prompt: str,
-        width : int,
-        height : int,
+        width: int,
+        height: int,
         seed: int,
         tag_length: str,
         ban_tags: str,
@@ -228,32 +206,27 @@ class DanTagGen:
         top_k: int,
         apply_DTG_formatting: bool,
     ):
-        models_available = {
-            model_path: [
-                LlamaForCausalLM.from_pretrained(model_path)
-                .requires_grad_(False)
-                .eval()
-                .half()
-                .to(DEVICE),
-                LlamaTokenizer.from_pretrained(model_path),
-            ]
-            for model_path in model_list
-        }
-        text_model, tokenizer = models_available[model]
+        """
+        执行标签生成过程。
 
-        set_seed(seed)
-        
+        参数：
+            model (str): 模型名称。
+            prompt (str): 用户输入的提示文本。
+            width (int): 图像宽度。
+            height (int): 图像高度。
+            seed (int): 随机种子。
+            tag_length (str): 标签长度。
+            ban_tags (str): 禁用的标签列表。
+            format (str): 标签格式模板。
+            temperature (float): 生成温度。
+            top_p (float): top-p 采样参数。
+            top_k (int): top-k 采样参数。
+            apply_DTG_formatting (bool): 是否应用 DTG 格式化。
+        """
+        # set_seed(seed)
         aspect_ratio = width / height
-        
-        prompt_without_extranet = prompt
-        #res = defaultdict(list)
+        prompt_without_extranet = prompt.strip()
         prompt_parse_strength = parse_prompt_attention(prompt_without_extranet)
-
-        # rebuild_extranet = ""
-        # for name, params in res.items():
-            # for param in params:
-                # items = ":".join(param.items)
-                # rebuild_extranet += f" <{name}:{items}>"
 
         black_list = [tag.strip() for tag in ban_tags.split(",") if tag.strip()]
         all_tags = []
@@ -261,19 +234,19 @@ class DanTagGen:
         for part, strength in prompt_parse_strength:
             part_tags = [tag.strip() for tag in part.strip().split(",") if tag.strip()]
             all_tags.extend(part_tags)
-            if strength == 1:
-                continue
-            for tag in part_tags:
-                strength_map[tag] = strength
+            if strength != 1:
+                for tag in part_tags:
+                    strength_map[tag] = strength
 
         tag_length = tag_length.replace(" ", "_")
         len_target = TARGET[tag_length]
 
         tag_map = seperate_tags(all_tags)
         dtg_prompt = apply_dtg_prompt(tag_map, tag_length, aspect_ratio)
-        for llm_gen, extra_tokens in tag_gen(
-            text_model,
-            tokenizer,
+
+        for llm_gen, extra_tokens,_ in tag_gen(
+            self.text_model,
+            self.tokenizer,
             dtg_prompt,
             tag_map["special"] + tag_map["general"],
             len_target,
@@ -283,52 +256,39 @@ class DanTagGen:
             top_k=top_k,
             max_new_tokens=256,
             max_retry=5,
+            seed=seed,
         ):
             pass
+
         tag_map["general"] += extra_tokens
         for cate in tag_map.keys():
             new_list = []
             for tag in tag_map[cate]:
-                tag = tag.replace("(", "\(").replace(")", "\)")
+                tag = tag.replace("(", r"\(").replace(")", r"\)")
                 if tag in strength_map:
                     new_list.append(f"({tag}:{strength_map[tag]})")
                 else:
                     new_list.append(tag)
             tag_map[cate] = new_list
-        prompt_by_dtg = apply_format(tag_map, format)
-        #return prompt_by_dtg + "\n" + rebuild_extranet
 
-        if False == apply_DTG_formatting:
-            user_prompt = prompt
-            try:
-                user_prompt.strip()
-            except AttributeError:
-                user_prompt = str(user_prompt)
-                user_prompt.strip()
-            try:
-                if ',' == user_prompt[-1]:
-                    user_prompt = user_prompt[0:-1]
-            except IndexError:
-                user_prompt = str(user_prompt)
+        prompt_by_dtg = apply_format(tag_map, format)
+
+        if not apply_DTG_formatting:
+            user_prompt = prompt.strip()
+            if user_prompt.endswith(','):
+                user_prompt = user_prompt[:-1]
 
             for token in extra_tokens:
-                try:
-                    token = token.strip()
-                except AttributeError:
-                    token = str(token)
-                    token.strip()
-                try:
-                    if "" == token:
-                        continue
-                    else:
-                        user_prompt += ", " + token
-                except IndexError:
-                    pass
+                token = token.strip()
+                if token:
+                    user_prompt += ", " + token
             prompt_by_dtg = user_prompt
 
         print(prompt_by_dtg)
+
         return (prompt_by_dtg,)
-        
+
+
 NODE_CLASS_MAPPINGS = {
     "DanTagGen": DanTagGen,
 }
