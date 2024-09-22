@@ -1,55 +1,40 @@
-ComfyUI node better aligned to KBlueLeaf's implementation of DanTagGen (https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg)
+基于 https://github.com/Aaron-CHM/ComfyUI-z-a1111-sd-webui-DanTagGen 版本修改bug，运行在铁锅炖启动器comfyui的DanTagGen
 
-Features:
-- Able to change DTG model, requires Tipo-KGen (https://github.com/KohakuBlueleaf/KGen)
-- Able to change seed, temperature, as well as top_p & top_k (top_p & top_k were not implemented in other custom nodes for DTG)
-![image](https://github.com/user-attachments/assets/3804681f-6a37-48bc-8fa8-d7939b1cd788)
+源代码(webui)来自 https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 
----------------------------------------------
+以下为安装方法：
 
-# A1111-SD-WebUI-DTG
+1.下载该仓库，解压到当前文件夹
 
-A sd-webui extension for utilizing DanTagGen to "upsample prompts".
+2.复制 “ComfyUI-DanTagGen-main” 文件夹至 "你的整合包路径\ComfyUI_Max\ComfyUI\custom_nodes" 中(或ComfyUI_Pro、ComfyUI_Mini，与AIGODLIKE-ComfyUI-Translation在同一个文件夹中)
 
-It can generate the detail tags/core tags about the character you put in the prompts. It can also add some extra elements into your prompt.
+3.在 "你的整合包路径\ComfyUI_Max\python_embeded\Lib\site-packages“ 中查找是否有“kgen”"llama_cpp"等一系列文件夹，如果有则跳转到
 
-**an extra z is added to repo name to ensure this extension will run `process()` after other extensions**
+4.安装kgen，在铁锅炖启动器-comfyui-配置-环境-安装依赖-输入依赖包名称与版本 中，输入 `tipo-kgen`,点击安装即可(控制台会提示“内存资源不足，无法处理此命令。”，对安装无影响，以实际提示为准)
 
-## What is DanTagGen
+5.尝试安装llama-cpp-python，在铁锅炖启动器-comfyui-配置-环境-安装依赖-输入依赖包名称与版本 中，输入 `llama-cpp-python`,点击安装,如出现
+```bash
+ CMake Error: CMAKE_C_COMPILER not set, after EnableLanguage
+      CMake Error: CMAKE_CXX_COMPILER not set, after EnableLanguage
+      -- Configuring incomplete, errors occurred!
 
-DanTagGen(Danbooru Tag Generator) is a LLM model designed for generating Danboou Tags with provided informations.
-It aims to provide user a more convinient way to make prompts for Text2Image model which is trained on Danbooru datasets.
+      *** CMake configuration failed
+```
+等有关Cmake的错误，你需要根据以下步骤自行编译安装
 
-More information about model arch and training data can be found in the HuggingFace Model card:
+6.安装并运行Microsoft C++ 生成工具 https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/ ，点选“使用C++的桌面开发”并下载安装(有6GB大小)
 
-[KBlueLeaf/DanTagGen-beta · Hugging Face](https://huggingface.co/KBlueLeaf/DanTagGen-beta)
+7.安装Cmake https://cmake.org/ ，点击右上DOWNLOAD,选择 Windows x64 Installer 对应的安装包下载并安装
+  https://github.com/Kitware/CMake/releases/download/v3.30.3/cmake-3.30.3-windows-x86_64.msi
 
-## How to use it
+8.安装scikit-build-core，在铁锅炖启动器-comfyui-配置-环境-安装依赖-输入依赖包名称与版本 中，输入 `scikit-build-core`,点击安装
 
-After install it into the sd-webui or sd-webui-forge. Just enable it in the acordion. It will automatically read the content of your prompt and generate more tags based on your prompt.
+9.根据步骤5再次安装llama-cpp-python，编译会需要些时间，可以查看任务管理器了解CPU运行情况，有报错可以发issue或B站私信
 
-### Options
+10.下载模型，并放在 "你的整合包路径\ComfyUI_Max\ComfyUI\custom_nodes\ComfyUI-DanTagGen-main\models" 中
+  推荐DanTagGen-delta-rev2的模型，3选1：
+  https://huggingface.co/KBlueLeaf/DanTagGen-delta-rev2/resolve/main/ggml-model-Q6_K.gguf?download=true （323MB）
+  https://huggingface.co/KBlueLeaf/DanTagGen-delta-rev2/resolve/main/ggml-model-Q8_0.gguf?download=true （418MB）
+  https://huggingface.co/KBlueLeaf/DanTagGen-delta-rev2/resolve/main/ggml-model-f16.gguf?download=true （786MB）
 
-* tag length:
-  * very short: around 10 tags
-  * short: around 20 tags
-  * long: around 40 tags
-  * very long: around 60 tags
-  * ***short or long is recommended***
-* Ban tags: The black list of tags you don't want to see in final prompt. Regex supported.
-* Prompt Format: The format of final prompt. Default value is the recommended format of [Kohaku XL Delta](https://civitai.com/models/332076/kohaku-xl-delta)
-* Seed: the seed of prompt generator. Since we use temperature/top k/top p sampling, so it is not deterministic unless you use same seed. -1 for random seed.
-* Upsampling timing:
-  * After: after other prompt processings, for example: after dynamic prompts/wildcard.
-  * Before: Before other prompt processings.
-* Temperature: Higher = more dynamic result, Lower = better coherence between tags.
-
-## Example
-
-![image](https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/assets/59680068/e45995c6-561f-4068-b78c-eeffaf4f9e5f)
-
-## Faster inference
-
-You can now select models in Generation config accordion. The script will automatically download the selected models if it is not existed. (Include gguf model.)
-
-If you want to download the gguf model by yourself, you need to rename it to `<Model Name>_<GGUF Name>` for example: `DanTagGen-gamma_ggml-model-Q6_K.gguf`
+11.打开comfyui使用吧(｡･∀･)ﾉﾞ！

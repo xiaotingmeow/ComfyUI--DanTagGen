@@ -13,10 +13,10 @@ import torch
 from transformers import  LlamaForCausalLM, LlamaTokenizer
 
 # 本地模块导入
-from kgen.formatter import seperate_tags, apply_format, apply_dtg_prompt
-from kgen.metainfo import TARGET
-from kgen.generate import tag_gen
-from kgen.logging import logger
+from .kgen.formatter import seperate_tags, apply_format, apply_dtg_prompt
+from .kgen.metainfo import TARGET
+from .kgen.generate import tag_gen
+from .kgen.logging import logger
 import kgen.models as models
 
 # 正则表达式模式定义

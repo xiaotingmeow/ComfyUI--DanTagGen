@@ -6,13 +6,20 @@ import torch
 
 try:
     from llama_cpp import Llama
-except:
+except ImportError:
 
     class Llama:
         pass
 
 
-from transformers import GenerationConfig, PreTrainedModel, PreTrainedTokenizerBase
+from transformers import (
+    GenerationConfig,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    set_seed,
+)
+
+from .utils import same_order_deduplicate
 
 
 def generate(
@@ -28,6 +35,7 @@ def generate(
     **kwargs,
 ):
     if isinstance(model, Llama):
+        # print(kwargs)
         result = model.create_completion(
             prompt,
             temperature=temperature,
@@ -35,8 +43,11 @@ def generate(
             top_k=top_k,
             max_tokens=max_new_tokens,
             repeat_penalty=repetition_penalty or 1,
+            seed=kwargs.get("seed", None),
         )
         return prompt + result["choices"][0]["text"]
+    if "seed" in kwargs:
+        set_seed(kwargs["seed"])
 
     torch.cuda.empty_cache()
     inputs = tokenizer(prompt, return_tensors="pt")
@@ -82,13 +93,19 @@ def tag_gen(
     top_p=0.95,
     top_k=100,
     max_new_tokens=256,
-    max_retry=5,
+    max_retry=20,
+    max_same_output=15,
+    seed=None,
 ):
-    prev_len = 0
     retry = max_retry
     llm_gen = ""
 
-    while True:
+    set_seed(seed)
+
+    iter_count = 0
+    prev_output = set()
+    same_output_count = 0
+    while retry >= 0 and same_output_count < max_same_output:
         llm_gen = generate(
             model=text_model,
             tokenizer=tokenizer,
@@ -101,33 +118,36 @@ def tag_gen(
             stream_output=False,
             autocast_gen=nullcontext,
             prompt_lookup_num_tokens=10,
-            pad_token_id=tokenizer.eos_token_id,
-            eos_token_id=tokenizer.eos_token_id,
+            pad_token_id=getattr(tokenizer, "eos_token_id", None),
+            eos_token_id=getattr(tokenizer, "eos_token_id", None),
+            seed=seed + iter_count,
         )
+        iter_count += 1
         llm_gen = llm_gen.replace("</s>", "").replace("<s>", "")
+        orig_prompt = llm_gen.split("<|input_end|>")[0]
         extra = llm_gen.split("<|input_end|>")[-1].strip().strip(",")
-        extra_tokens = list(
-            set(
-                [
-                    tok.strip()
-                    for tok in extra.split(",")
-                    if not black_list_match(tok.strip(), black_list)
-                ]
-            )
-        )
+        extra_tokens = [
+            tok.strip()
+            for tok in extra.split(",")
+            if not black_list_match(tok.strip(), black_list)
+        ]
+        extra_tokens = same_order_deduplicate(extra_tokens)
         llm_gen = llm_gen.replace(extra, ", ".join(extra_tokens))
 
-        yield llm_gen, extra_tokens
+        yield llm_gen, extra_tokens, iter_count
+
+        if set(extra_tokens) == prev_output:
+            same_output_count += 1
+            retry += 1
+        else:
+            same_output_count = 0
+            prev_output = set(extra_tokens)
 
         if len(prompt_tags) + len(extra_tokens) < len_target:
-            if len(extra_tokens) == prev_len and prev_len > 0:
-                if retry < 0:
-                    break
-                retry -= 1
+            retry -= 1
             shuffle(extra_tokens)
-            retry = max_retry
-            prev_len = len(extra_tokens)
+            llm_gen = f"{orig_prompt}<|input_end|>{', '.join(extra_tokens)}"
             prompt = llm_gen.strip().replace("  <|", " <|")
         else:
             break
-    yield llm_gen, extra_tokens
+    yield llm_gen, extra_tokens, iter_count

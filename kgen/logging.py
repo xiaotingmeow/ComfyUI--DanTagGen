@@ -22,13 +22,17 @@ class ColoredFormatter(logging.Formatter):
 
 
 # Create a new logger
-logger = logging.getLogger("DanTagGen")
+logger = logging.getLogger("TIPO-KGen")
 logger.propagate = False
 
 # Add handler if we don't have one.
 if not logger.handlers:
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(ColoredFormatter("[%(name)s]-%(levelname)s: %(message)s"))
+    handler.setFormatter(
+        ColoredFormatter(
+            "[%(name)s]-|%(asctime)s|-%(levelname)s: %(message)s", "%H:%M:%S"
+        )
+    )
     logger.addHandler(handler)
 
 logger.setLevel(logging.INFO)

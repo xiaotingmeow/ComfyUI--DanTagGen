@@ -1,10 +1,11 @@
 import os
 import pathlib
 
+from . import models
 from .metainfo import SPECIAL, POSSIBLE_QUALITY_TAGS, RATING_TAGS
 
 
-tag_list_folder = pathlib.Path(os.path.dirname(__file__)) / ".." / "tag-list"
+tag_list_folder = pathlib.Path(os.path.dirname(__file__)) / "tag-list"
 tag_lists = {
     os.path.splitext(f)[0]: set(open(tag_list_folder / f).read().strip().split("\n"))
     for f in os.listdir(tag_list_folder)
@@ -23,20 +24,26 @@ def seperate_tags(all_tags):
             if tag in tag_lists[cate]:
                 tag_map[cate].append(tag)
                 break
+            if tag.replace("_", " ") in tag_lists[cate]:
+                tag_map[cate].append(tag.replace("_", " "))
+                break
         else:
-            tag_map["general"].append(tag)
+            if len(tag) < 4:
+                tag_map["general"].append(tag)
+            else:
+                tag_map["general"].append(tag.replace("_", " "))
     return tag_map
 
 
-def apply_format(tag_map, format):
+def apply_format(tag_map, form):
     for type in tag_map:
-        if f"<|{type}|>" in format:
+        if f"<|{type}|>" in form:
             if not tag_map[type]:
-                format = format.replace(f"<|{type}|>,", "")
-                format = format.replace(f"<|{type}|>", "")
+                form = form.replace(f"<|{type}|>,", "")
+                form = form.replace(f"<|{type}|>", "")
             else:
-                format = format.replace(f"<|{type}|>", ", ".join(tag_map[type]))
-    return format.strip().strip(",")
+                form = form.replace(f"<|{type}|>", ", ".join(tag_map[type]))
+    return form.strip().strip(",")
 
 
 def apply_dtg_prompt(tag_map, target="", aspect_ratio=1.0):
@@ -46,7 +53,6 @@ def apply_dtg_prompt(tag_map, target="", aspect_ratio=1.0):
     characters = ", ".join(tag_map.get("characters", []))
     copyrights = ", ".join(tag_map.get("copyrights", []))
     general = ", ".join(tag_map.get("general", []))
-    aspect_ratio = aspect_ratio
     prompt = f"""
 rating: {rating or '<|empty|>'}
 artist: {artist.strip() or '<|empty|>'}
@@ -56,6 +62,11 @@ aspect ratio: {f"{aspect_ratio:.1f}" or '<|empty|>'}
 target: {'<|' + target + '|>' if target else '<|long|>'}
 general: {special_tags}, {general.strip().strip(",")}<|input_end|>
 """.strip()
+    
+    # print(models.current_model_name)
+    # if models.model_have_quality_info[models.current_model_name]:
+    #     quality = ", ".join(tag_map.get("quality", ["masterpiece"]))
+    #     prompt = f"quality: {quality}\n{prompt}"
 
     return prompt
 
@@ -126,4 +137,4 @@ if __name__ == "__main__":
     )
     print()
     print()
-    print(apply_dtg_prompt(tag_map, 1.0))
+    print(apply_dtg_prompt(tag_map,"", 1.0))
